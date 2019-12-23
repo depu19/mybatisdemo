@@ -1,0 +1,670 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  ~ Copyright (c) 2018 JCPenney Co. All rights reserved.
+  -->
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+
+<mapper namespace="com.jcpenney.digital.catalog.mapper.ProductMapper">
+
+
+  <insert id='insert' parameterType='ProductCatalog'>
+    insert into product (
+    id,
+    display_name, description,
+    status_code,
+    lot_type,
+    start_date,end_date,country_of_origin,
+    sales_chnl_attributes,
+    product_line,product_type,sub_type,item_type,
+    channel_code,
+    factory_ship_vendor,sub_division_id,manufacturer,
+    entity_id,class_id,brand_id,model_nb,legacy_id,short_name,
+    has_price, service_type, ppk_id, cm_model_id, creation_date, last_modified_date
+    )
+    VALUES
+    (
+    #{id},
+    #{displayName},#{description},
+    (select id from status_code where status_code = #{status}),
+    (select id from lot_type where type = #{lotType}),
+    #{startDate}, #{endDate},#{countryOfOrigin},
+    #{salesChannelAttributes, typeHandler=com.jcpenney.digital.catalog.handler.HstoreStringTypeHandler}::public.hstore,
+    #{productLine},#{productType}, #{subType},#{itemType},
+    (select id from CHANNEL_CODE where CHANNEL = #{channel}),
+    #{factoryShipVendor},#{subDivisionId},#{manufacturer},
+    #{entity},#{productClass}, #{brandId}, #{modelNumber},#{legacyId},#{shortName},
+    true, #{serviceType}, #{ppkId}, #{customizationModelId}, #{creationDate},current_timestamp
+    )
+  </insert>
+
+  <insert id="insertAttributes">
+    insert into product_attributes (id, attribute_code, attribute_value) values
+    <foreach item="attr" collection="list" separator=",">
+      (#{id}, #{attr.code},
+      #{attr.values, typeHandler=com.jcpenney.digital.catalog.handler.ListToArrayTypeHandler})
+    </foreach>
+
+  </insert>
+
+
+  <select id="getById" resultMap="productResultMap">
+    SELECT
+    p.id as id,
+    p.short_name as shortName,
+    p.display_name as displayName,
+    p.description as description,
+    p.status_code as status,
+    lotType.type as lotType,
+    p.start_date as startDate,
+    p.end_date as endDate,
+    p.country_of_origin as countryOfOrigin,
+    p.sales_chnl_attributes as salesChannelAttributes,
+    p.product_line as productLine,
+    p.product_type as productType,
+    p.sub_type as subType,
+    p.item_type as itemType,
+    channel.channel as channel,
+    p.factory_ship_vendor as factoryShipVendor,
+    p.manufacturer as manufacturer,
+    p.sub_division_id as subDivisionId,
+    p.entity_id as entity,
+    p.class_id as productClass,
+    p.brand_id as brandId,
+    p.model_nb as modelNumber,
+    p.legacy_id as legacyId,
+    p.has_price as priceAvailable,
+    p.warranty_id as warrantyId,
+    p.cm_model_id as customizationModelId,
+    p.last_modified_date as lastModifiedDate,
+    p.clearance_activation_date as clearanceActivationDate,
+    p.clearance_deactivation_date as clearanceDeactivationDate,
+    p.bulleted_description as bulletedDescription,
+    p.truckable as truckable,
+    p.is_preview_active as previewActive,
+    p.is_production_active as productionActive,
+    p.deactivation_reasons as deactivationReasons,
+    p.length_start as lengthStart,
+    p.length_end as lengthEnd,
+    p.width_start as widthStart,
+    p.width_end as widthEnd,
+    p.is_deleted as deleted,
+    p.is_sephora as sephora,
+    p.is_hidden as hidden,
+    p.disclaimer_ids as disclaimer_ids,
+    p.creation_date as creationDate,
+    p.service_type as serviceType,
+    p.ppk_id as ppkId,
+    p.service_description as serviceDescription,
+    p.will_call_factory_ship as willCallFactoryShip,
+
+    ir.child_item_id as skuId,
+
+    abc.id as pp_id,
+
+    CASE
+    WHEN pprv.id is null THEN
+    abc.is_preview_active
+    ELSE
+    pprv.is_preview_active
+    END as pp_preview_active,
+
+    abc.is_production_active as pp_prod_active,
+
+    subd.division_id as divId,
+    subd.name as subDivName,
+    subd.entity_id as subDivEntityId,
+    div.name as divName,
+
+    b.name as brand_name,
+    b.parent_brand_id as brand_parent_id,
+    b.only_at_jcp as brand_only_jcp,
+    b.is_deleted as is_brand_deleted
+
+    FROM product p
+    JOIN lot_type lotType ON p.lot_type= lotType.id
+    JOIN channel_code channel ON p.channel_code = channel.id
+    join sub_division subd on subd.id = p.sub_division_id
+    join division div on div.id  = subd.division_id
+    left outer join brand b on b.id = p.brand_id
+    left outer join item_relation ir on ir.parent_item_id=p.id and ir.item_relation_type ='PRODUCT_SKU'
+    left outer join item_relation ppl on ppl.child_item_id=p.id and ppl.item_relation_type ='PP_PRODUCT'
+    left outer join product_presentation abc on abc.id = ppl.parent_item_id
+    left outer join product_presentation_preview pprv on pprv.id = ppl.parent_item_id
+    where p.id =#{id}
+  </select>
+
+  <select id="getByIds" resultMap="productResultMap">
+    SELECT
+    p.id as id,
+    p.short_name as shortName,
+    p.display_name as displayName,
+    p.description as description,
+    p.status_code as status,
+    lotType.type as lotType,
+    p.start_date as startDate,
+    p.end_date as endDate,
+    p.country_of_origin as countryOfOrigin,
+    p.sales_chnl_attributes as salesChannelAttributes,
+    p.product_line as productLine,
+    p.product_type as productType,
+    p.sub_type as subType,
+    p.item_type as itemType,
+    channel.channel as channel,
+    p.factory_ship_vendor as factoryShipVendor,
+    p.manufacturer as manufacturer,
+    p.sub_division_id as subDivisionId,
+    p.entity_id as entity,
+    p.class_id as productClass,
+    p.brand_id as brandId,
+    p.model_nb as modelNumber,
+    p.legacy_id as legacyId,
+    p.has_price as priceAvailable,
+    p.warranty_id as warrantyId,
+    p.cm_model_id as customizationModelId,
+    p.last_modified_date as lastModifiedDate,
+    p.clearance_activation_date as clearanceActivationDate,
+    p.clearance_deactivation_date as clearanceDeactivationDate,
+    p.bulleted_description as bulletedDescription,
+    p.truckable as truckable,
+    p.is_preview_active as previewActive,
+    p.is_production_active as productionActive,
+    p.deactivation_reasons as deactivationReasons,
+    p.length_start as lengthStart,
+    p.length_end as lengthEnd,
+    p.width_start as widthStart,
+    p.width_end as widthEnd,
+    p.is_deleted as deleted,
+    p.is_sephora as sephora,
+    p.is_hidden as hidden,
+    p.disclaimer_ids as disclaimer_ids,
+    p.service_type as serviceType,
+    p.ppk_id as ppkId,
+    p.creation_date as creationDate,
+    p.service_description as serviceDescription,
+    p.will_call_factory_ship as willCallFactoryShip,
+
+    ir.child_item_id as skuId,
+
+    abc.id as pp_id,
+
+    CASE
+    WHEN pprv.id is null THEN
+    abc.is_preview_active
+    ELSE
+    pprv.is_preview_active
+    END as pp_preview_active,
+
+    abc.is_production_active as pp_prod_active,
+
+    subd.division_id as divId,
+    subd.name as subDivName,
+    subd.entity_id as subDivEntityId,
+    div.name as divName,
+
+    b.name as brand_name,
+    b.parent_brand_id as brand_parent_id,
+    b.only_at_jcp as brand_only_jcp,
+    b.is_deleted as is_brand_deleted
+
+    FROM product p
+    JOIN lot_type lotType ON p.lot_type= lotType.id
+    JOIN channel_code channel ON p.channel_code = channel.id
+    join sub_division subd on subd.id = p.sub_division_id
+    join division div on div.id  = subd.division_id
+    left outer join brand b on b.id = p.brand_id
+    left outer join item_relation ir on ir.parent_item_id=p.id and ir.item_relation_type ='PRODUCT_SKU'
+    left outer join item_relation ppl on ppl.child_item_id=p.id and ppl.item_relation_type ='PP_PRODUCT'
+    left outer join product_presentation abc on abc.id = ppl.parent_item_id
+    left outer join product_presentation_preview pprv on pprv.id = ppl.parent_item_id
+    where p.id in
+    <foreach item="item" index="index" collection="list" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+  </select>
+
+  <select id="getAllSkusByProductId" resultType="string">
+    SELECT child_item_id FROM
+    item_relation ir WHERE ir.parent_item_id = #{id} AND ir.item_relation_type='PRODUCT_SKU'
+  </select>
+
+
+  <select id="getPpIdsFromPpkId" resultType="string">
+    SELECT ir.parent_item_id FROM
+    product lot join item_relation ir on ir.child_item_id = lot.id where lot.ppk_id = #{id}
+  </select>
+
+
+  <select id="getAllSkusByProductIdAndColor" resultMap="skuListResultMap">
+    select distinct fo.id, sku.preferred_view, attribute_code, attribute_value from
+    (select id, attribute_code,
+    UPPER(REGEXP_REPLACE(SA.ATTRIBUTE_VALUE,'[^a-zA-Z0-9]+','', 'g')) attribute_value
+
+    from sku_attributes sa where id in (
+    SELECT child_item_id from item_relation ir
+    WHERE ir.parent_item_id = #{id} AND ir.item_relation_type='PRODUCT_SKU' )) fo
+    join SKU sku on
+    fo.id = sku.id
+  </select>
+
+  <resultMap id="skuListResultMap" type="Sku">
+    <id column="id" property="id"/>
+    <result column="preferred_view" property="preferredView"/>
+    <collection property="skuAttributes" ofType="SkuAttribute">
+      <id property="id" column="attribute_code"/>
+      <result property="value" column="attribute_value"/>
+    </collection>
+  </resultMap>
+
+  <resultMap id="productResultMap" type="Product">
+    <id property="id" column="id"/>
+    <result property="shortName" column="shortName"/>
+    <result property="displayName" column="displayName"/>
+    <result property="description" column="description"/>
+    <result property="statusCode" column="status"/>
+    <result property="username" column="username"/>
+    <result property="lotType" column="lotType"/>
+    <result property="startDate" column="startDate"/>
+    <result property="endDate" column="endDate"/>
+    <result property="countryOfOrigin" column="countryOfOrigin"/>
+    <result property="salesChannelAttributes" column="salesChannelAttributes"/>
+    <result property="productLine" column="productLine"/>
+    <result property="productType" column="productType"/>
+    <result property="subType" column="subType"/>
+    <result property="itemType" column="itemType"/>
+    <result property="legacyId" column="legacyId"/>
+    <result property="modelNumber" column="modelNumber"/>
+    <result property="channel" column="channel"/>
+    <result property="factoryShipVendor" column="factoryShipVendor"/>
+    <result property="manufacturer" column="manufacturer"/>
+    <result property="productClass" column="productClass"/>
+    <result property="priceAvailable" column="priceAvailable"/>
+    <result property="lastModifiedDate" column="lastModifiedDate"/>
+    <result property="bulletedDescription" column="bulletedDescription"/>
+    <result property="truckable" column="truckable"/>
+    <result property="previewActive" column="previewActive"/>
+    <result property="productionActive" column="productionActive"/>
+    <result property="clearanceActivationDate" column="clearanceActivationDate"/>
+    <result property="clearanceDeactivationDate" column="clearanceDeactivationDate"/>
+    <result property="lengthStart" column="lengthStart"/>
+    <result property="lengthEnd" column="lengthEnd"/>
+    <result property="widthStart" column="widthStart"/>
+    <result property="widthEnd" column="widthEnd"/>
+    <result property="disclaimerIds" column="disclaimer_ids" typeHandler="com.jcpenney.digital.catalog.handler.ListToArrayTypeHandler"/>
+    <result property="serviceType" column="serviceType"/>
+    <result property="deleted" column="deleted"/>
+    <result property="sephora" column="sephora"/>
+    <result property="hidden" column="hidden"/>
+    <result property="ppkId" column="ppkId"/>
+    <result property="serviceDescription" column="serviceDescription"/>
+    <result property="creationDate" column="creationDate"/>
+
+    <result property="deactivationReasons" column="deactivationReasons" typeHandler="com.jcpenney.digital.catalog.handler.ListToArrayTypeHandler"/>
+
+    <result property="bulletedDescription" column="bulletedDescription"/>
+    <result property="truckable" column="truckable"/>
+    <result property="willCallFactoryShip" column="willCallFactoryShip"/>
+
+    <association property="subDivision" javaType="SubDivision">
+      <id property="id" column="subDivisionId"/>
+      <id property="name" column="subDivName"/>
+      <id property="divisionId" column="divId"/>
+      <id property="entityId" column="subDivEntityId"/>
+    </association>
+
+    <association property="division" javaType="Division">
+      <id property="id" column="divId"/>
+      <id property="name" column="divName"/>
+    </association>
+
+    <association property="brand" javaType="Brand">
+      <id property="id" column="brandId"/>
+      <id property="name" column="brand_name"/>
+      <id property="parentBrandId" column="brand_parent_id"/>
+      <id property="onlyAtJcp" column="brand_only_jcp"/>
+      <id property="deleted" column="is_brand_deleted"/>
+    </association>
+
+    <association property="warranty" javaType="Warranty">
+      <id property="id" column="warrantyId"/>
+    </association>
+
+    <association property="customizationModel" javaType="CustomizationModel">
+      <id property="id" column="customizationModelId"/>
+    </association>
+
+    <collection property="productAttributes" ofType="ProductAttribute">
+      <id property="code" column="attributecode"/>
+      <result property="values" column="attributevalue"
+        typeHandler="com.jcpenney.digital.catalog.handler.ListToArrayTypeHandler"/>
+    </collection>
+
+    <collection property="associatedPps" ofType="AssociatedProduct">
+      <id property="ppId" column="pp_id"/>
+      <result property="previewActive" column="pp_preview_active"/>
+      <result property="productionActive" column="pp_prod_active"/>
+    </collection>
+
+    <collection property="skus" ofType="Sku">
+      <id property="id" column="skuId"/>
+    </collection>
+
+  </resultMap>
+
+  <update id="update" parameterType="ProductCatalog">
+    UPDATE product SET
+    <if test="displayName != null">display_name = #{displayName},</if>
+    <if test="description != null">description = #{description},</if>
+    <if test="status != null">status_code = (select id from status_code where status_code = #{status}),</if>
+    <if test="lotType != null">lot_type = (select id from lot_type where type = #{lotType}),</if>
+    <if test="startDate != null">start_date = #{startDate},</if>
+    <if test="endDate != null">end_date = #{endDate},</if>
+    <if test="shortName != null">short_name = #{shortName},</if>
+    <if test="countryOfOrigin != null">country_of_origin = #{countryOfOrigin},</if>
+    <if test="salesChannelAttributes != null">
+    sales_chnl_attributes =
+    #{salesChannelAttributes, typeHandler=com.jcpenney.digital.catalog.handler.HstoreStringTypeHandler}::public.hstore,
+    </if>
+    <if test="productLine != null">product_line = #{productLine},</if>
+    <if test="productType != null">product_type = #{productType},</if>
+    <if test="subType != null">sub_type = #{subType},</if>
+    <if test="itemType != null">item_type = #{itemType},</if>
+    <if test="channel != null">
+    channel_code = (select id from CHANNEL_CODE where CHANNEL = #{channel}),
+    </if>
+    <if test="factoryShipVendor != null">factory_ship_vendor = #{factoryShipVendor},</if>
+    <if test="manufacturer != null">manufacturer = #{manufacturer},</if>
+    <if test="subDivisionId != null">sub_division_id = #{subDivisionId},</if>
+    <if test="entity != null">entity_id = #{entity},</if>
+    <if test="productClass != null">class_id = #{productClass},</if>
+    <if test="brandId != null">brand_id = #{brandId},</if>
+    <if test="modelNumber != null">model_nb = #{modelNumber},</if>
+    <if test="ppkId != null">ppk_id = #{ppkId},</if>
+    <if test="legacyId != null">legacy_id = #{legacyId},</if>
+    <if test="serviceType != null">service_type = #{serviceType},</if>
+    cm_model_id = #{customizationModelId},
+    is_hidden = false,
+    last_modified_date = current_timestamp
+    WHERE id = #{id} AND is_deleted = false
+  </update>
+
+  <update id="updateEnrichedProduct" parameterType="Product">
+    UPDATE product SET
+    bulleted_description = #{bulletedDescription},
+    truckable = #{truckable},
+    sub_type = #{subType},
+    item_type = #{itemType},
+    is_sephora = #{sephora},
+    disclaimer_ids = #{disclaimerIds, typeHandler=com.jcpenney.digital.catalog.handler.ListToArrayTypeHandler},
+    lot_type = (select id from lot_type where type = #{lotType}),
+    sales_chnl_attributes =
+    #{salesChannelAttributes, typeHandler=com.jcpenney.digital.catalog.handler.HstoreStringTypeHandler}::public.hstore,
+    is_preview_active = #{previewActive},
+    is_production_active = #{productionActive},
+    deactivation_reasons = #{deactivationReasons, typeHandler=com.jcpenney.digital.catalog.handler.ListToArrayTypeHandler},
+    last_modified_date = current_timestamp
+    WHERE id = #{id}
+  </update>
+
+  <update id="updateValidatedProduct" parameterType="Product">
+    UPDATE product SET
+    is_preview_active = #{previewActive},
+    is_production_active = #{productionActive},
+    deactivation_reasons = #{deactivationReasons, typeHandler=com.jcpenney.digital.catalog.handler.ListToArrayTypeHandler},
+    last_modified_date = current_timestamp
+    WHERE id = #{id}
+  </update>
+
+
+  <update id="updatePrice">
+    UPDATE product SET
+    clearance_activation_date = #{activationDate},
+    clearance_deactivation_date = #{deactivationDate}
+    WHERE id = #{id}
+  </update>
+
+  <update id="updateWarranty">
+    UPDATE product SET
+    warranty_id = #{warrantyId},
+    last_modified_date = current_timestamp
+    WHERE id = #{productId} AND is_deleted = false
+  </update>
+
+  <update id="updateCustomizationModel" parameterType="ProductCustomizationModel">
+    UPDATE product SET
+    cm_model_id = #{customizationModelId},
+    last_modified_date = current_timestamp
+    WHERE id = #{productId} AND is_deleted = false
+  </update>
+
+  <update id="updateMtmDetails" parameterType="ProductToProductRelation">
+    UPDATE product SET
+    length_start = #{lengthStart},
+    length_end = #{lengthEnd},
+    width_start = #{widthStart},
+    width_end = #{widthEnd},
+    last_modified_date = current_timestamp
+    WHERE id = #{childProductId} AND is_deleted = false
+  </update>
+
+  <delete id="deleteProductToProductRelations">
+    delete from item_relation where parent_item_id = #{id} and item_relation_type = 'PRODUCT_PRODUCT'
+  </delete>
+
+  <insert id="insertProductToProductRelations">
+    insert into item_relation (parent_item_id, child_item_id, item_relation_type, sequence_number) values
+    <foreach item="lot" collection="list" separator=",">
+      (#{id}, #{lot.childProductId}, 'PRODUCT_PRODUCT', #{lot.sequence})
+    </foreach>
+
+  </insert>
+
+  <delete id="deleteAttributes">
+    delete from product_attributes where id = #{id}
+  </delete>
+
+  <update id="markAsDeleted">
+    UPDATE product SET
+    is_deleted = true
+    WHERE id = #{id} AND is_deleted = false
+  </update>
+
+  <select id="getSubType" resultType="string">
+    SELECT sub_type FROM product
+    WHERE id = #{id}
+  </select>
+
+  <select id="isProductExist" resultType="boolean">
+    SELECT EXISTS(SELECT 1 FROM product WHERE id=#{id})
+  </select>
+
+  <select id="hasChildProducts" resultType="boolean">
+    SELECT EXISTS(SELECT 1 FROM item_relation ir  WHERE ir.parent_item_id = #{id} and ir.item_relation_type='PRODUCT_PRODUCT')
+  </select>
+
+
+  <select id="getProductToProductAssociations" resultMap="productToProductRelationMap">
+    SELECT ir.child_item_id as childProductId,
+    ir.sequence_number as sequence,
+    p.length_start as lengthStart,
+    p.length_end as lengthEnd,
+    p.width_start as widthStart,
+    p.width_end as widthEnd
+    from item_relation  ir
+    join product p on p.id=ir.child_item_id
+    where parent_item_id = #{id} and item_relation_type = 'PRODUCT_PRODUCT'
+  </select>
+
+  <select id="getAssociatedLots" resultMap="associatedLotsMap">
+    SELECT ir.child_item_id as lotId,
+    p.legacy_id as legacyLotId,
+    p.length_start as lengthStart,
+    p.length_end as lengthEnd,
+    p.width_start as widthStart,
+    p.width_end as widthEnd,
+    p.is_preview_active as lotIsPreviewActive,
+    p.is_production_active as lotIsProductionActive,
+    p.is_deleted as lotdeleted,
+    ir.sequence_number as sequence,
+    s.id as skuId,
+    s.legacy_id as skuLegacyId,
+    s.is_preview_active as skuIsPreviewActive,
+    s.is_production_active as skuIsProductionActive,
+    s.is_deleted as skudeleted
+    from product p
+    join item_relation  ir on ir.child_item_id = p.id and  ir.item_relation_type='PRODUCT_PRODUCT'
+    join item_relation irs on irs.parent_item_id = p.id and irs.item_relation_type='PRODUCT_SKU'
+    join sku s on s.id = irs.child_item_id
+    where ir.parent_item_id = #{id}
+  </select>
+
+  <select id="getProductToProductLegacyAssociations" resultMap="productToProductRelationMap">
+    SELECT p.legacy_id as childProductId,
+    ir.sequence_number as sequence,
+    p.length_start as lengthStart,
+    p.length_end as lengthEnd,
+    p.width_start as widthStart,
+    p.width_end as widthEnd
+    from item_relation  ir
+    join product p on p.id=ir.child_item_id
+    where parent_item_id = #{id} and item_relation_type = 'PRODUCT_PRODUCT'
+  </select>
+
+  <select id="getServiceDescription" resultMap="productServiceInfoMap">
+    select id as id , legacy_id as legacyId, service_description as serviceDescription
+    from product p where legacy_id = #{id} and is_deleted = false
+  </select>
+
+  <resultMap id="productServiceInfoMap" type="ProductServiceInfo">
+    <id column="id" property="id"/>
+    <result column="legacyId" property="legacyId"/>
+    <result column="serviceDescription" property="serviceDescription"/>
+  </resultMap>
+
+  <update id="updateServiceDescription" parameterType="ProductServiceInfo">
+    UPDATE product SET
+    service_description = #{serviceDescription},
+    last_modified_date = current_timestamp
+    WHERE id = #{id} AND is_deleted = false
+  </update>
+
+  <select id="getParentProducts" resultType="string">
+    SELECT parent_item_id
+    from item_relation
+    where child_item_id = #{id} and item_relation_type = 'PRODUCT_PRODUCT'
+  </select>
+
+  <select id="getProductAssociatedPps" resultType="string">
+    SELECT
+    parent_item_id
+    from item_relation
+    WHERE child_item_id =#{id} AND item_relation_type ='PP_PRODUCT'
+  </select>
+
+  <select id="getPps" resultMap="itemRelationResultMap">
+    SELECT
+    parent_item_id,child_item_id
+    from item_relation
+    WHERE child_item_id in
+    <foreach item="item" index="index" collection="list" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+    AND item_relation_type ='PP_PRODUCT'
+  </select>
+
+  <resultMap id="itemRelationResultMap" type="ItemRelation">
+    <id column="parent_item_id" property="parentItemId"/>
+    <result column="child_item_id" property="childItemId"/>
+    <result column="item_relation_type" property="itemRelationType"/>
+
+  </resultMap>
+
+  <select id="getIdByLegacyId" resultType="string">
+    SELECT id FROM product
+    WHERE legacy_id = #{legacyId} AND is_deleted = false
+  </select>
+
+  <select id="getLegacyIdById" resultType="string">
+    SELECT legacy_id FROM product
+    WHERE id = #{id} AND is_deleted = false
+  </select>
+
+  <select id="getCustomizationModelId" resultType="string">
+    SELECT cm_model_id FROM product WHERE id = #{id}
+  </select>
+
+  <select id="getProductDetailsById" resultMap="ProductVideoMap">
+    select brand_id, item_type,sub_type
+    from product
+    where id = #{id}
+  </select>
+
+  <select id="getAllAttributes" resultMap="productAttributeInfosMap">
+    select id as id, attribute_code as code, attribute_value as values from product_attributes where id in
+    <foreach item="item" index="index" collection="list" open="(" separator="," close=")">
+      #{item}
+    </foreach>
+
+  </select>
+
+  <select id="getAllAttributesById" resultMap="productAttributeInfosMap">
+    select id as id, attribute_code as code, attribute_value as values from product_attributes where id = #{id}
+
+  </select>
+
+
+  <select id="findColorsForProduct" resultType="string">
+    SELECT color
+    FROM jcp_catalog_core_schema.sku where id in (
+      select child_item_id from jcp_catalog_core_schema.item_relation where parent_item_id in
+        (select id from jcp_catalog_core_schema.product where legacy_id = #{id})
+    )
+  </select>
+
+  <resultMap id="ProductVideoMap" type="ProductDetail">
+    <result property="brandId" column="brand_id"/>
+    <result property="itemType" column="item_type"/>
+    <result property="productType" column="sub_type"/>
+  </resultMap>
+
+  <resultMap id="productAttributeInfosMap" type="ProductAttributeInfo">
+    <id property="id" column="id"/>
+    <result property="code" column="code"/>
+    <result property="values" column="values" typeHandler="com.jcpenney.digital.catalog.handler.ListToArrayTypeHandler"/>
+  </resultMap>
+
+
+  <resultMap id="productToProductRelationMap" type="ProductToProductRelation">
+   <id property="childProductId" column="childProductId"/>
+    <result property="sequence" column="sequence"/>
+    <result property="lengthStart" column="lengthStart"/>
+    <result property="lengthEnd" column="lengthEnd"/>
+    <result property="widthStart" column="widthStart"/>
+    <result property="widthEnd" column="widthEnd"/>
+  </resultMap>
+
+  <resultMap id="associatedLotsMap" type="AssociatedLot">
+    <id property="id" column="lotId"/>
+    <result property="legacyId" column="legacyLotId"/>
+    <result property="lengthStart" column="lengthStart"/>
+    <result property="lengthEnd" column="lengthEnd"/>
+    <result property="widthStart" column="widthStart"/>
+    <result property="widthEnd" column="widthEnd"/>
+    <result property="sequenceNumber" column="sequence"/>
+    <result property="deleted" column="lotdeleted"/>
+
+    <result property="previewActive" column="lotIsPreviewActive"/>
+    <result property="productionActive" column="lotIsProductionActive"/>
+
+    <collection property="associatedLotSkus" ofType="AssociatedLotSku">
+      <id property="id" column="skuId"/>
+      <result property="legacyId" column="skuLegacyId"/>
+      <result property="previewActive" column="skuIsPreviewActive"/>
+      <result property="productionActive" column="skuIsProductionActive"/>
+      <result property="deleted" column="skudeleted"/>
+    </collection>
+
+  </resultMap>
+
+</mapper>
